@@ -4,35 +4,77 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { MessageCircle, Mail, User, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
+import { toast } from "sonner";
 
 type AuthMode = "login" | "signup" | "otp";
 
 const AuthPage = () => {
+  const { register, login, verifyRegister, verifyLogin, loading, error } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [showPassword, setShowPassword] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     username: "",
     displayName: "",
     loginIdentifier: "",
-    otp: ""
+    otp: "",
+    password: ""
   });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authMode === "signup") {
-      // In real app: send signup request and switch to OTP
-      setAuthMode("otp");
-    } else if (authMode === "login") {
-      // In real app: send login request and switch to OTP
-      setAuthMode("otp");
-    } else {
-      // In real app: verify OTP and login
-      console.log("OTP verification");
+    
+    try {
+      if (authMode === "signup") {
+        // Step 1: Send registration request
+        const result = await register(formData.email, formData.username, formData.displayName);
+        setUserId(result.userId);
+        
+        // Show toast based on mailSent flag
+        if (result.mailSent) {
+          toast.success("OTP sent to your email! Check your inbox.");
+        } else {
+          toast.error("Failed to send OTP email. Please try again.");
+        }
+        
+        setAuthMode("otp");
+      } else if (authMode === "login") {
+        // Step 1: Send login request
+        const result = await login(formData.loginIdentifier);
+        setUserId(result.userId);
+        
+        // Show toast based on mailSent flag
+        if (result.mailSent) {
+          toast.success("OTP sent to your email! Check your inbox.");
+        } else {
+          toast.error("Failed to send OTP email. Please try again.");
+        }
+        
+        setAuthMode("otp");
+      } else {
+        // Step 2: Verify OTP
+        if (userId) {
+          if (authMode === "otp" && formData.password) {
+            // Registration verification
+            await verifyRegister(userId, formData.otp, formData.password);
+            toast.success("Registration successful! Welcome to Flick!");
+            // Redirect to main app
+          } else {
+            // Login verification
+            await verifyLogin(userId, formData.otp);
+            toast.success("Login successful! Welcome back!");
+            // Redirect to main app
+          }
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || err.message || "An error occurred");
     }
   };
 
@@ -144,33 +186,67 @@ const AuthPage = () => {
               )}
 
               {authMode === "otp" && (
-                <div className="space-y-2">
-                  <Label htmlFor="otp" className="text-secondary-foreground">
-                    Verification Code
-                  </Label>
-                  <Input
-                    id="otp"
-                    type="text"
-                    placeholder="Enter 6-digit code"
-                    value={formData.otp}
-                    onChange={(e) => handleInputChange("otp", e.target.value)}
-                    className="text-center text-lg tracking-widest bg-input border-border text-foreground"
-                    maxLength={6}
-                    required
-                  />
-                  <p className="text-sm text-muted-foreground text-center">
-                    Code sent to {formData.email || formData.loginIdentifier}
-                  </p>
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="otp" className="text-secondary-foreground">
+                      Verification Code
+                    </Label>
+                    <Input
+                      id="otp"
+                      type="text"
+                      placeholder="Enter 6-digit code"
+                      value={formData.otp}
+                      onChange={(e) => handleInputChange("otp", e.target.value)}
+                      className="text-center text-lg tracking-widest bg-input border-border text-foreground"
+                      maxLength={6}
+                      required
+                    />
+                    <p className="text-sm text-muted-foreground text-center">
+                      Code sent to {formData.email || formData.loginIdentifier}
+                    </p>
+                  </div>
+
+                  {/* Password field for registration */}
+                  {formData.email && (
+                    <div className="space-y-2">
+                      <Label htmlFor="password" className="text-secondary-foreground">
+                        Create Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Create a strong password"
+                          value={formData.password}
+                          onChange={(e) => handleInputChange("password", e.target.value)}
+                          className="pr-10 bg-input border-border text-foreground"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <Button 
                 type="submit" 
+                disabled={loading}
                 className="w-full bg-gradient-primary hover:bg-gradient-hover transition-all duration-300"
               >
-                {authMode === "login" && "Send Login Code"}
-                {authMode === "signup" && "Create Account"}
-                {authMode === "otp" && "Verify & Continue"}
+                {loading ? "Loading..." : (
+                  <>
+                    {authMode === "login" && "Send Login Code"}
+                    {authMode === "signup" && "Create Account"}
+                    {authMode === "otp" && "Verify & Continue"}
+                  </>
+                )}
               </Button>
             </form>
 

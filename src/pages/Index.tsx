@@ -1,12 +1,11 @@
-import { useState } from "react";
 import AuthPage from "@/components/AuthPage";
 import ChatLayout from "@/components/ChatLayout";
+import { useAuth } from "../hooks/useAuth";
 
 const Index = () => {
-  // In a real app, this would be managed by authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user } = useAuth();
 
-  if (!isAuthenticated) {
+  if (!user) {
     return <AuthPage />;
   }
 
