@@ -48,8 +48,6 @@ const AuthPage = () => {
         // Step 1: Send login request
         const result = await login(formData.loginIdentifier);
         setUserId(result.userId);
-        
-        // Show success message for OTP sent
         toast.success("OTP sent to your email! Check your inbox.");
         setAuthMode("otp");
       } else {

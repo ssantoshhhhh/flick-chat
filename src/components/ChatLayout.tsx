@@ -8,6 +8,7 @@ import ChatWindow from "./ChatWindow";
 import { useAuth } from "../hooks/useAuth";
 import { useChat } from "../hooks/useChat";
 import { Chat } from "../lib/chatService";
+import { toast } from "sonner";
 
 
 
@@ -162,8 +163,15 @@ const ChatLayout = () => {
               size="sm" 
               variant="ghost" 
               onClick={() => {
-                logout();
-                window.location.reload();
+                toast("Are you sure you want to logout?", {
+                  action: {
+                    label: "Confirm",
+                    onClick: () => {
+                      logout();
+                      window.location.reload();
+                    }
+                  }
+                });
               }}
             >
               <LogOut className="h-5 w-5" />
