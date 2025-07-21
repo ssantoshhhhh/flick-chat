@@ -111,7 +111,22 @@ router.post('/verify-register', async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, userId]);
     await pool.query('UPDATE otps SET used = 1 WHERE id = ?', [rows[0].id]);
-    res.json({ message: 'Registration complete' });
+    
+    // Get user data and generate token (same as login)
+    const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = users[0];
+    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    
+    res.json({ 
+      message: 'Registration complete',
+      token,
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        display_name: user.display_name, 
+        email: user.email 
+      }
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

@@ -1,112 +1,127 @@
-import { useState, useCallback } from 'react';
-import { api } from '../lib/api';
-import { socket } from '../lib/socket';
+import { useState, useEffect, useCallback } from 'react';
+import { chatService, Chat, Message, SendMessageRequest } from '../lib/chatService';
 
 export function useChat() {
-  const [chats, setChats] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // List user's chats
-  const fetchChats = useCallback(async () => {
-    setLoading(true); setError(null);
+  // Load chats
+  const loadChats = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await api.get('/chat/my');
-      setChats(res.data);
-      setLoading(false);
+      const chatList = await chatService.getChats();
+      setChats(chatList);
     } catch (err: any) {
+      setError(err.message || 'Failed to load chats');
+    } finally {
       setLoading(false);
-      setError(err.response?.data?.message || err.message);
     }
   }, []);
 
-  // Create a chat
-  const createChat = useCallback(async (type: string, name: string, members: number[]) => {
-    setLoading(true); setError(null);
+  // Load messages for a chat
+  const loadMessages = useCallback(async (chatId: string) => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await api.post('/chat/create', { type, name, members });
-      setLoading(false);
-      return res.data;
+      const messageList = await chatService.getMessages(chatId);
+      setMessages(messageList);
     } catch (err: any) {
+      setError(err.message || 'Failed to load messages');
+    } finally {
       setLoading(false);
-      setError(err.response?.data?.message || err.message);
+    }
+  }, []);
+
+  // Select a chat
+  const selectChat = useCallback(async (chat: Chat) => {
+    setSelectedChat(chat);
+    await loadMessages(chat.id);
+  }, [loadMessages]);
+
+  // Send a message
+  const sendMessage = useCallback(async (content: string) => {
+    if (!selectedChat || !content.trim()) return;
+
+    const request: SendMessageRequest = {
+      chatId: selectedChat.id,
+      content: content.trim(),
+      type: 'text'
+    };
+
+    try {
+      const newMessage = await chatService.sendMessage(request);
+      setMessages(prev => [...prev, newMessage]);
+      
+      // Update the chat's last message
+      setChats(prev => prev.map(chat => 
+        chat.id === selectedChat.id 
+          ? { ...chat, lastMessage: content, timestamp: 'now', unreadCount: 0 }
+          : chat
+      ));
+    } catch (err: any) {
+      setError(err.message || 'Failed to send message');
+    }
+  }, [selectedChat]);
+
+  // Create a new chat
+  const createChat = useCallback(async (participantIds: string[], name?: string) => {
+    try {
+      const newChat = await chatService.createChat(participantIds, name);
+      setChats(prev => [newChat, ...prev]);
+      return newChat;
+    } catch (err: any) {
+      setError(err.message || 'Failed to create chat');
       throw err;
     }
   }, []);
 
-  // Fetch messages for a chat
-  const fetchMessages = useCallback(async (chatId: number) => {
-    setLoading(true); setError(null);
+  // Search users
+  const searchUsers = useCallback(async (query: string) => {
     try {
-      const res = await api.get(`/chat/${chatId}/messages`);
-      setMessages(res.data);
-      setLoading(false);
+      return await chatService.searchUsers(query);
     } catch (err: any) {
-      setLoading(false);
-      setError(err.response?.data?.message || err.message);
+      setError(err.message || 'Failed to search users');
+      return [];
     }
   }, []);
 
-  // Send a message (E2EE: encrypted_content)
-  const sendMessage = useCallback(async (chatId: number, encrypted_content: string, type = 'text', parent_message_id?: number) => {
-    setLoading(true); setError(null);
+  // Mark messages as read
+  const markAsRead = useCallback(async (messageIds: string[]) => {
+    if (!selectedChat) return;
+    
     try {
-      const res = await api.post(`/chat/${chatId}/message`, { encrypted_content, type, parent_message_id });
-      setLoading(false);
-      return res.data;
+      await chatService.markAsRead(selectedChat.id, messageIds);
+      setMessages(prev => prev.map(msg => 
+        messageIds.includes(msg.id) 
+          ? { ...msg, status: 'read' as const }
+          : msg
+      ));
     } catch (err: any) {
-      setLoading(false);
-      setError(err.response?.data?.message || err.message);
-      throw err;
+      console.error('Failed to mark messages as read:', err);
     }
-  }, []);
+  }, [selectedChat]);
 
-  // Pin/unpin a message
-  const pinItem = useCallback(async (itemType: string, itemId: number) => {
-    await api.post('/chat/pin', { itemType, itemId });
-  }, []);
-  const unpinItem = useCallback(async (itemType: string, itemId: number) => {
-    await api.post('/chat/unpin', { itemType, itemId });
-  }, []);
-
-  // Add/remove reaction
-  const reactToMessage = useCallback(async (messageId: number, emoji: string, chatId: number) => {
-    await api.post(`/chat/message/${messageId}/react`, { emoji, chatId });
-  }, []);
-  const removeReaction = useCallback(async (messageId: number, emoji: string, chatId: number) => {
-    await api.delete(`/chat/message/${messageId}/react`, { data: { emoji, chatId } });
-  }, []);
-
-  // Edit/delete message
-  const editMessage = useCallback(async (messageId: number, content: string) => {
-    await api.put(`/chat/message/${messageId}/edit`, { content });
-  }, []);
-  const deleteMessage = useCallback(async (messageId: number) => {
-    await api.delete(`/chat/message/${messageId}`);
-  }, []);
-
-  // Thread: fetch replies
-  const fetchThread = useCallback(async (messageId: number) => {
-    const res = await api.get(`/chat/message/${messageId}/thread`);
-    return res.data;
-  }, []);
-
-  // Real-time: connect/disconnect/join/leave
-  const connectSocket = useCallback(() => { socket.connect(); }, []);
-  const disconnectSocket = useCallback(() => { socket.disconnect(); }, []);
-  const joinChat = useCallback((chatId: number) => { socket.emit('join', chatId); }, []);
-  const leaveChat = useCallback((chatId: number) => { socket.emit('leave', chatId); }, []);
+  // Load chats on mount
+  useEffect(() => {
+    loadChats();
+  }, [loadChats]);
 
   return {
-    chats, messages, loading, error,
-    fetchChats, createChat,
-    fetchMessages, sendMessage,
-    pinItem, unpinItem,
-    reactToMessage, removeReaction,
-    editMessage, deleteMessage,
-    fetchThread,
-    connectSocket, disconnectSocket, joinChat, leaveChat,
-    setMessages, setChats
+    chats,
+    selectedChat,
+    messages,
+    loading,
+    error,
+    loadChats,
+    selectChat,
+    sendMessage,
+    createChat,
+    searchUsers,
+    markAsRead,
+    setSelectedChat
   };
 } 

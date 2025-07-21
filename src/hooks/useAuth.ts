@@ -28,6 +28,11 @@ export function useAuth() {
     setLoading(true); setError(null);
     try {
       const res = await api.post('/auth/verify-register', { userId, otp, password });
+      if (res.data.token) {
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
+        setUser(res.data.user);
+      }
       setLoading(false);
       return res.data;
     } catch (err: any) {

@@ -49,13 +49,8 @@ const AuthPage = () => {
         const result = await login(formData.loginIdentifier);
         setUserId(result.userId);
         
-        // Show toast based on mailSent flag
-        if (result.mailSent) {
-          toast.success("OTP sent to your email! Check your inbox.");
-        } else {
-          toast.error("Failed to send OTP email. Please try again.");
-        }
-        
+        // Show success message for OTP sent
+        toast.success("OTP sent to your email! Check your inbox.");
         setAuthMode("otp");
       } else {
         // Step 2: Verify OTP
@@ -64,17 +59,33 @@ const AuthPage = () => {
             // Registration verification
             await verifyRegister(userId, formData.otp, formData.password);
             toast.success("Registration successful! Welcome to Flick!");
-            // Redirect to main app
+            // Force a small delay to ensure state is updated
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
           } else {
             // Login verification
             await verifyLogin(userId, formData.otp);
             toast.success("Login successful! Welcome back!");
-            // Redirect to main app
+            // Force a small delay to ensure state is updated
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
           }
         }
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || err.message || "An error occurred");
+      // Handle specific error cases
+      if (err.response?.status === 404) {
+        toast.error("Email not registered. Please sign up first.", {
+          action: {
+            label: "Sign Up",
+            onClick: () => setAuthMode("signup")
+          }
+        });
+      } else {
+        toast.error(err.response?.data?.message || err.message || "An error occurred");
+      }
     }
   };
 
@@ -283,10 +294,10 @@ const AuthPage = () => {
                     </button>
                   </p>
                   <button
-                    onClick={() => setAuthMode("login")}
+                    onClick={() => setAuthMode(formData.email ? "signup" : "login")}
                     className="text-muted-foreground hover:text-foreground transition-colors text-sm"
                   >
-                    ← Back to login
+                    ← Back to {formData.email ? "signup" : "login"}
                   </button>
                 </div>
               )}
