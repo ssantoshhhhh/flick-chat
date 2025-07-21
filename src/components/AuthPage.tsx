@@ -251,7 +251,15 @@ const AuthPage = () => {
                 disabled={loading}
                 className="w-full bg-gradient-primary hover:bg-gradient-hover transition-all duration-300"
               >
-                {loading ? "Loading..." : (
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    {/* Lightning bolt SVG with spin animation */}
+                    <svg className="animate-spin-slow h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Loading...
+                  </span>
+                ) : (
                   <>
                     {authMode === "login" && "Send Login Code"}
                     {authMode === "signup" && "Create Account"}
