@@ -26,16 +26,18 @@ const ChatLayout = () => {
     sendMessage, 
     createChat, 
     searchUsers,
-    setSelectedChat 
+    setSelectedChat,
+    loadChats
   } = useChat();
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewChat, setShowNewChat] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
-  const filteredChats = chats.filter(chat =>
-    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Defensive filtering for chats
+  const filteredChats = chats
+    .filter(chat => chat && chat.name && typeof chat.name === 'string')
+    .filter(chat => chat.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className="h-screen bg-background flex">
@@ -249,12 +251,29 @@ const ChatLayout = () => {
                       className="flex items-center space-x-3 p-2 hover:bg-muted rounded cursor-pointer"
                       onClick={async () => {
                         try {
-                          await createChat([user.id], user.username);
-                          setShowNewChat(false);
-                          setUserSearchQuery("");
-                          setSearchResults([]);
+                          // Check if a chat with this user already exists
+                          const existingChat = chats.find(chat =>
+                            chat && !chat.isGroup && chat.participants && chat.participants.includes(user.id)
+                          );
+                          if (existingChat) {
+                            await selectChat(existingChat);
+                            setShowNewChat(false);
+                            setUserSearchQuery("");
+                            setSearchResults([]);
+                          } else {
+                            const newChatResponse = await createChat([user.id], user.username);
+                            // Refresh chat list and select the full chat object
+                            await loadChats();
+                            const updatedChat = chats.find(chat => chat && chat.id === (newChatResponse.chatId || newChatResponse.id));
+                            if (updatedChat) {
+                              await selectChat(updatedChat);
+                            }
+                            setShowNewChat(false);
+                            setUserSearchQuery("");
+                            setSearchResults([]);
+                          }
                         } catch (error) {
-                          console.error("Failed to create chat:", error);
+                          console.error("Failed to create/select chat:", error);
                         }
                       }}
                     >

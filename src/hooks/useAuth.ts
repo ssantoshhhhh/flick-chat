@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
+import { connectSocketWithUserId } from './useChat';
 
 export function useAuth() {
   const [user, setUser] = useState<any>(() => {
@@ -31,6 +32,10 @@ export function useAuth() {
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
+        if (res.data.user && res.data.user.id) {
+          localStorage.setItem('userId', res.data.user.id);
+          connectSocketWithUserId();
+        }
         setUser(res.data.user);
       }
       setLoading(false);
@@ -64,6 +69,10 @@ export function useAuth() {
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
         localStorage.setItem('user', JSON.stringify(res.data.user));
+        if (res.data.user && res.data.user.id) {
+          localStorage.setItem('userId', res.data.user.id);
+          connectSocketWithUserId();
+        }
         setUser(res.data.user);
       }
       setLoading(false);

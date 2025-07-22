@@ -60,7 +60,10 @@ class ChatService {
   // Send a message
   async sendMessage(request: SendMessageRequest): Promise<Message> {
     try {
-      const response = await api.post('/chat/send', request);
+      const response = await api.post(`/chat/${request.chatId}/message`, {
+        content: request.content,
+        type: request.type || 'text',
+      });
       return {
         ...response.data,
         timestamp: new Date(response.data.timestamp)

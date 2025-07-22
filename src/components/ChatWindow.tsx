@@ -73,34 +73,44 @@ const ChatWindow = ({ chatName, onBack, messages, onSendMessage, loading }: Chat
           </div>
         )}
         
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.senderId === '1' ? 'justify-end' : 'justify-start'}`}
-          >
+        {messages.map((message, idx) => {
+          let displayTime = '';
+          let ts = message.timestamp;
+          if (ts) {
+            if (!(ts instanceof Date)) {
+              ts = new Date(ts);
+            }
+            displayTime = isNaN(ts.getTime()) ? '' : ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          }
+          return (
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                message.senderId === '1'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-foreground'
-              }`}
+              key={message.id || idx}
+              className={`flex ${message.senderId === '1' ? 'justify-end' : 'justify-start'}`}
             >
-              <p className="text-sm">{message.content}</p>
-              <div className="flex items-center justify-between mt-1">
-                <p className="text-xs opacity-70">
-                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                {message.senderId === '1' && (
-                  <div className="ml-2">
-                    {message.status === 'sent' && <Check className="h-3 w-3" />}
-                    {message.status === 'delivered' && <CheckCheck className="h-3 w-3" />}
-                    {message.status === 'read' && <CheckCheck className="h-3 w-3 text-blue-400" />}
-                  </div>
-                )}
+              <div
+                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                  message.senderId === '1'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground'
+                }`}
+              >
+                <p className="text-sm">{message.content}</p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs opacity-70">
+                    {displayTime}
+                  </p>
+                  {message.senderId === '1' && (
+                    <div className="ml-2">
+                      {message.status === 'sent' && <Check className="h-3 w-3" />}
+                      {message.status === 'delivered' && <CheckCheck className="h-3 w-3" />}
+                      {message.status === 'read' && <CheckCheck className="h-3 w-3 text-blue-400" />}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
