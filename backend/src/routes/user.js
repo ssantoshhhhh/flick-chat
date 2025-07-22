@@ -145,4 +145,19 @@ router.post('/preferences', authenticateToken, async (req, res) => {
   }
 });
 
+// Search users by username or email (for chat)
+router.get('/search', async (req, res) => {
+  const q = req.query.q;
+  if (!q || q.length < 2) return res.json([]);
+  try {
+    const [users] = await pool.query(
+      'SELECT id, username, email FROM users WHERE (username LIKE ? OR email LIKE ?) AND is_deleted != 1',
+      [`%${q}%`, `%${q}%`]
+    );
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 export default router; 

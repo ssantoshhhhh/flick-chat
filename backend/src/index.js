@@ -91,9 +91,24 @@ io.on('connection', (socket) => {
   });
 
   // Send message
-  socket.on('message', (data) => {
-    // data: { chatId, message }
-    io.to(`chat_${data.chatId}`).emit('message', data);
+  socket.on('message', async (data) => {
+    // data: { chatId, content, type, senderId, timestamp }
+    try {
+      // Save to DB
+      const [result] = await pool.query(
+        'INSERT INTO messages (chat_id, sender_id, content, type, status, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [data.chatId, data.senderId, data.content, data.type || 'text', 'sent', new Date()]
+      );
+      // Fetch the saved message with all fields (including auto-generated ones)
+      const [rows] = await pool.query(
+        'SELECT * FROM messages WHERE id = ?',
+        [result.insertId]
+      );
+      const savedMessage = rows[0];
+      io.to(`chat_${data.chatId}`).emit('message', savedMessage);
+    } catch (err) {
+      console.error('Socket message save error:', err);
+    }
   });
 
   // Typing indicator

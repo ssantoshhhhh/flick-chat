@@ -32,9 +32,34 @@ router.get('/my', authenticateToken, async (req, res) => {
   }
 });
 
-// Create a new chat (personal, group, or project)
+// Alias: /list -> /my
+router.get('/list', authenticateToken, async (req, res) => {
+  try {
+    const [chats] = await pool.query(
+      `SELECT c.id, c.type, c.name, c.created_at
+       FROM chats c
+       JOIN chat_members m ON c.id = m.chat_id
+       WHERE m.user_id = ?`,
+      [req.user.id]
+    );
+    res.json(chats);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Enhanced /create to support both formats
 router.post('/create', authenticateToken, async (req, res) => {
-  const { type, name, members } = req.body; // type: 'personal'|'group'|'project', name for group/project, members: [userId]
+  let type = req.body.type;
+  let name = req.body.name;
+  let members = req.body.members;
+  // Support { participantIds, name }
+  if (req.body.participantIds) {
+    members = req.body.participantIds;
+    if (!type) {
+      type = members.length === 1 ? 'personal' : 'group';
+    }
+  }
   try {
     // For personal chat, check if already exists
     if (type === 'personal' && members && members.length === 1) {
